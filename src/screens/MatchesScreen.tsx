@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { MATCHES_URL } from "../config";
+import { FavoriteButton } from "../components/FavoriteButton";
+import { useFavorites } from "../hooks/useFavorites";
+import { UpdatedAgo } from '../components/UpdatedAgo';
 
 type Match = {
   id: string;
@@ -10,23 +13,62 @@ type Match = {
     id: string;
     name: string;
     city: string;
-    score: number | null;
   };
   away: {
     id: string;
     name: string;
     city: string;
-    score: number | null;
   };
+  score: {
+    home: number | null;
+    away: number | null;
+  } | null;
 };
 
 type MatchFilter = "all" | "upcoming" | "finished";
+
+function formatMatchDate(startsAt: string | null) {
+  if (!startsAt) {
+    return "Дата не назначена";
+  }
+
+  const date = new Date(startsAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Дата неизвестна";
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getMatchStatus(status: string) {
+  switch (status) {
+    case "scheduled":
+      return "Предстоящий";
+    case "live":
+      return "Идёт";
+    case "finished":
+      return "Завершён";
+    case "postponed":
+      return "Перенесён";
+    default:
+      return "Статус неизвестен";
+  }
+}
 
 export function MatchesScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [filter, setFilter] = useState<MatchFilter>("all");
+  const { isFavorite, toggle } = useFavorites();
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const filteredMatches = matches.filter((match) => {
     if (filter === "upcoming") {
@@ -53,6 +95,7 @@ export function MatchesScreen() {
 
       const data = await response.json();
       setMatches(data.matches);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Ошибка загрузки матчей:", error);
       setError(true);
@@ -68,6 +111,16 @@ export function MatchesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Матчи тура</Text>
+      {lastUpdated && <UpdatedAgo since={lastUpdated} />}
+      <Pressable
+        style={styles.refreshButton}
+        onPress={loadMatches}
+        disabled={loading}
+      >
+        <Text style={styles.refreshButtonText}>
+          {loading ? "Обновление..." : "Обновить"}
+        </Text>
+      </Pressable>
       <View style={styles.filters}>
         <Text onPress={() => setFilter("all")}>Все</Text>
         <Text onPress={() => setFilter("upcoming")}>Предстоящие</Text>
@@ -93,9 +146,17 @@ export function MatchesScreen() {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.matchCard}>
+              <FavoriteButton
+                active={isFavorite(item.id)}
+                onPress={() => toggle(item.id)}
+              />
+              <Text style={styles.matchDate}>
+                {formatMatchDate(item.startsAt)}
+              </Text>
+              <Text style={styles.status}>{getMatchStatus(item.status)}</Text>
               <Text style={styles.team}>{item.home.name}</Text>
               <Text style={styles.score}>
-                {item.home.score ?? "—"} : {item.away.score ?? "—"}
+                {item.score?.home ?? "—"} : {item.score?.away ?? "—"}
               </Text>
               <Text style={styles.team}>{item.away.name}</Text>
             </View>
@@ -134,5 +195,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginVertical: 16,
+  },
+  matchDate: {
+    fontSize: 13,
+    color: "#666666",
+    marginBottom: 4,
+  },
+  status: {
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  refreshButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 6,
+    backgroundColor: "#ef3124",
+  },
+  refreshButtonText: {
+    color: "#ffffff",
+    fontWeight: "600",
   },
 });
