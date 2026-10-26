@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { MATCHES_URL } from "../config";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { useFavorites } from "../hooks/useFavorites";
@@ -50,16 +57,16 @@ function formatMatchDate(startsAt: string | null) {
 
 function getMatchStatus(status: string, minute?: number | null) {
   switch (status) {
-    case 'scheduled':
-      return 'Предстоящий';
-    case 'live':
-      return minute != null ? `Идёт · ${minute}'` : 'Идёт';
-    case 'finished':
-      return 'Завершён';
-    case 'postponed':
-      return 'Перенесён';
+    case "scheduled":
+      return "Предстоящий";
+    case "live":
+      return minute != null ? `Идёт · ${minute}'` : "Идёт";
+    case "finished":
+      return "Завершён";
+    case "postponed":
+      return "Перенесён";
     default:
-      return 'Статус неизвестен';
+      return "Статус неизвестен";
   }
 }
 
@@ -68,16 +75,28 @@ export function MatchesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [filter, setFilter] = useState<MatchFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const { isFavorite, toggle } = useFavorites();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const filteredMatches = matches.filter((match) => {
-    if (filter === "upcoming") {
-      return match.status === "scheduled";
+    if (filter === "upcoming" && match.status !== "scheduled") {
+      return false;
     }
 
-    if (filter === "finished") {
-      return match.status === "finished";
+    if (filter === "finished" && match.status !== "finished") {
+      return false;
+    }
+
+    const query = searchQuery.trim().toLocaleLowerCase("ru-RU");
+
+    if (query) {
+      const homeTeam = match.home.name.toLocaleLowerCase("ru-RU");
+      const awayTeam = match.away.name.toLocaleLowerCase("ru-RU");
+
+      if (!homeTeam.includes(query) && !awayTeam.includes(query)) {
+        return false;
+      }
     }
 
     return true;
@@ -113,6 +132,15 @@ export function MatchesScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Матчи тура</Text>
       {lastUpdated && <UpdatedAgo since={lastUpdated} />}
+      <TextInput
+        style={styles.searchInput}
+        multiline={false}
+        placeholder="Поиск по названию клуба..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        autoCapitalize="none"
+        clearButtonMode="while-editing"
+      />
       <Pressable
         style={styles.refreshButton}
         onPress={loadMatches}
@@ -154,7 +182,9 @@ export function MatchesScreen() {
               <Text style={styles.matchDate}>
                 {formatMatchDate(item.startsAt)}
               </Text>
-              <Text style={styles.status}>{getMatchStatus(item.status, item.minute)}</Text>
+              <Text style={styles.status}>
+                {getMatchStatus(item.status, item.minute)}
+              </Text>
               <Text style={styles.team}>{item.home.name}</Text>
               <Text style={styles.score}>
                 {item.score?.home ?? "—"} : {item.score?.away ?? "—"}
@@ -176,6 +206,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "700",
+  },
+  searchInput: {
+   height: 44,
+  minHeight: 44,
+  maxHeight: 44,
+  borderWidth: 1,
+  borderColor: "#dddddd",
+  borderRadius: 8,
+  paddingHorizontal: 12,
+  paddingVertical: 0,
+  marginTop: 12,
   },
   matchCard: {
     padding: 12,
