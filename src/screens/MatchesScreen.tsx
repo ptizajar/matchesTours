@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { MATCHES_URL } from "../config";
 import { FavoriteButton } from "../components/FavoriteButton";
 import { useFavorites } from "../hooks/useFavorites";
-import { UpdatedAgo } from '../components/UpdatedAgo';
+import { UpdatedAgo } from "../components/UpdatedAgo";
 
 type Match = {
   id: string;
@@ -23,6 +23,7 @@ type Match = {
     home: number | null;
     away: number | null;
   } | null;
+  minute?: number | null;
 };
 
 type MatchFilter = "all" | "upcoming" | "finished";
@@ -47,18 +48,18 @@ function formatMatchDate(startsAt: string | null) {
   }).format(date);
 }
 
-function getMatchStatus(status: string) {
+function getMatchStatus(status: string, minute?: number | null) {
   switch (status) {
-    case "scheduled":
-      return "Предстоящий";
-    case "live":
-      return "Идёт";
-    case "finished":
-      return "Завершён";
-    case "postponed":
-      return "Перенесён";
+    case 'scheduled':
+      return 'Предстоящий';
+    case 'live':
+      return minute != null ? `Идёт · ${minute}'` : 'Идёт';
+    case 'finished':
+      return 'Завершён';
+    case 'postponed':
+      return 'Перенесён';
     default:
-      return "Статус неизвестен";
+      return 'Статус неизвестен';
   }
 }
 
@@ -153,7 +154,7 @@ export function MatchesScreen() {
               <Text style={styles.matchDate}>
                 {formatMatchDate(item.startsAt)}
               </Text>
-              <Text style={styles.status}>{getMatchStatus(item.status)}</Text>
+              <Text style={styles.status}>{getMatchStatus(item.status, item.minute)}</Text>
               <Text style={styles.team}>{item.home.name}</Text>
               <Text style={styles.score}>
                 {item.score?.home ?? "—"} : {item.score?.away ?? "—"}
